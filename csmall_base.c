@@ -1,21 +1,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define TAM_LEXEMA 128
 
 /* -------------------- Tokens da Csmall -------------------- */
 
-typedef enum {
-    TOK_INT, TOK_FLOAT, TOK_IF, TOK_ELSE, TOK_WHILE, TOK_PRINT,
-    TOK_IDENTIFIER, TOK_INT_CONST, TOK_FLOAT_CONST,
-    TOK_PLUS, TOK_MINUS, TOK_MULT, TOK_DIV,
-    TOK_ASSIGN, TOK_LT, TOK_LE, TOK_GT, TOK_GE, TOK_EQ, TOK_NE,
-    TOK_LPAREN, TOK_RPAREN, TOK_LBRACE, TOK_RBRACE, TOK_SEMICOLON,
-    TOK_EOF, TOK_INVALID
+typedef enum
+{
+    TOK_INT,
+    TOK_FLOAT,
+    TOK_IF,
+    TOK_ELSE,
+    TOK_WHILE,
+    TOK_PRINT,
+    TOK_IDENTIFIER,
+    TOK_INT_CONST,
+    TOK_FLOAT_CONST,
+    TOK_PLUS,
+    TOK_MINUS,
+    TOK_MULT,
+    TOK_DIV,
+    TOK_ASSIGN,
+    TOK_LT,
+    TOK_LE,
+    TOK_GT,
+    TOK_GE,
+    TOK_EQ,
+    TOK_NE,
+    TOK_LPAREN,
+    TOK_RPAREN,
+    TOK_LBRACE,
+    TOK_RBRACE,
+    TOK_SEMICOLON,
+    TOK_EOF,
+    TOK_INVALID
 } TokenType;
 
-typedef struct {
+typedef struct
+{
     TokenType tipo;
     char lexema[TAM_LEXEMA];
     int linha;
@@ -23,63 +47,64 @@ typedef struct {
 
 const char *nomeToken(TokenType tipo)
 {
-    switch (tipo) {
-        case TOK_INT: 
-            return "INT";
-        case TOK_FLOAT: 
-            return "FLOAT";
-        case TOK_IF: 
-            return "IF";
-        case TOK_ELSE: 
-            return "ELSE";
-        case TOK_WHILE: 
-            return "WHILE";
-        case TOK_PRINT: 
-            return "PRINT";
-        case TOK_IDENTIFIER: 
-            return "IDENTIFIER";
-        case TOK_INT_CONST: 
-            return "INT_CONST";
-        case TOK_FLOAT_CONST: 
-            return "FLOAT_CONST";
-        case TOK_PLUS: 
-            return "PLUS";
-        case TOK_MINUS: 
-            return "MINUS";
-        case TOK_MULT: 
-            return "MULT";
-        case TOK_DIV: 
-            return "DIV";
-        case TOK_ASSIGN: 
-            return "ASSIGN";
-        case TOK_LT: 
-            return "LT";
-        case TOK_LE: 
-            return "LE";
-        case TOK_GT: 
-            return "GT";
-        case TOK_GE: 
-            return "GE";
-        case TOK_EQ: 
-            return "EQ";
-        case TOK_NE: 
-            return "NE";
-        case TOK_LPAREN: 
-            return "LPAREN";
-        case TOK_RPAREN: 
-            return "RPAREN";
-        case TOK_LBRACE: 
-            return "LBRACE";
-        case TOK_RBRACE: 
-            return "RBRACE";
-        case TOK_SEMICOLON: 
-            return "SEMICOLON";
-        case TOK_EOF: 
-            return "EOF";
-        case TOK_INVALID: 
-            return "INVALID";
-        default: 
-            return "UNKNOWN";
+    switch (tipo)
+    {
+    case TOK_INT:
+        return "INT";
+    case TOK_FLOAT:
+        return "FLOAT";
+    case TOK_IF:
+        return "IF";
+    case TOK_ELSE:
+        return "ELSE";
+    case TOK_WHILE:
+        return "WHILE";
+    case TOK_PRINT:
+        return "PRINT";
+    case TOK_IDENTIFIER:
+        return "IDENTIFIER";
+    case TOK_INT_CONST:
+        return "INT_CONST";
+    case TOK_FLOAT_CONST:
+        return "FLOAT_CONST";
+    case TOK_PLUS:
+        return "PLUS";
+    case TOK_MINUS:
+        return "MINUS";
+    case TOK_MULT:
+        return "MULT";
+    case TOK_DIV:
+        return "DIV";
+    case TOK_ASSIGN:
+        return "ASSIGN";
+    case TOK_LT:
+        return "LT";
+    case TOK_LE:
+        return "LE";
+    case TOK_GT:
+        return "GT";
+    case TOK_GE:
+        return "GE";
+    case TOK_EQ:
+        return "EQ";
+    case TOK_NE:
+        return "NE";
+    case TOK_LPAREN:
+        return "LPAREN";
+    case TOK_RPAREN:
+        return "RPAREN";
+    case TOK_LBRACE:
+        return "LBRACE";
+    case TOK_RBRACE:
+        return "RBRACE";
+    case TOK_SEMICOLON:
+        return "SEMICOLON";
+    case TOK_EOF:
+        return "EOF";
+    case TOK_INVALID:
+        return "INVALID";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -89,9 +114,12 @@ void imprimirToken(Token token)
            nomeToken(token.tipo), token.lexema, token.linha);
 }
 
+/* -------------------- Palavras reservadas -------------------- */
+
 /* -------------------- Leitura do codigo-fonte -------------------- */
 
-typedef struct {
+typedef struct
+{
     FILE *arquivo;
     int linha;
 } CodigoFonte;
@@ -101,7 +129,8 @@ int abrirCodigoFonte(CodigoFonte *codigo, const char *nomeArquivo)
     codigo->arquivo = fopen(nomeArquivo, "r");
     codigo->linha = 1;
 
-    if (codigo->arquivo == NULL) {
+    if (codigo->arquivo == NULL)
+    {
         fprintf(stderr, "Nao foi possivel abrir o arquivo: %s\n", nomeArquivo);
         return 0;
     }
@@ -111,7 +140,8 @@ int abrirCodigoFonte(CodigoFonte *codigo, const char *nomeArquivo)
 
 void fecharCodigoFonte(CodigoFonte *codigo)
 {
-    if (codigo->arquivo != NULL) {
+    if (codigo->arquivo != NULL)
+    {
         fclose(codigo->arquivo);
         codigo->arquivo = NULL;
     }
@@ -122,7 +152,8 @@ int lerCaractere(CodigoFonte *codigo)
 {
     int caractere = fgetc(codigo->arquivo);
 
-    if (caractere == '\n') {
+    if (caractere == '\n')
+    {
         codigo->linha++;
     }
 
@@ -131,13 +162,15 @@ int lerCaractere(CodigoFonte *codigo)
 
 void devolverCaractere(CodigoFonte *codigo, int caractere)
 {
-    if (caractere == EOF) {
+    if (caractere == EOF)
+    {
         return;
     }
 
     ungetc(caractere, codigo->arquivo);
 
-    if (caractere == '\n') {
+    if (caractere == '\n')
+    {
         codigo->linha--;
     }
 }
@@ -170,19 +203,61 @@ void erroSemantico(int linha, const char *mensagem)
 
 /* -------------------- Lexer: IMPLEMENTAR -------------------- */
 
+Token scanWord(CodigoFonte *codigo)
+{
+    Token token = {TOK_IDENTIFIER, "", codigo->linha};
+
+    for (int i = 0; i < TAM_LEXEMA; i++)
+    {
+        char caractere = olharCaractere(codigo);
+        if (isalpha(caractere) || isdigit(caractere) || caractere == '_')
+        {
+            token.lexema[i] = caractere;
+        }
+        else
+        {
+            devolverCaractere(codigo, caractere);
+            token.lexema[i] = '\0';
+            return token;
+        }
+        caractere = lerCaractere(codigo);
+    }
+
+    token.tipo = TOK_INVALID;
+    return token;
+}
+
+
+
 Token proximoToken(CodigoFonte *codigo)
 {
     /*
      TODO: implementar o reconhecimento de tokens.
      Sugestao: use lerCaractere(), olharCaractere() e devolverCaractere().
      */
-    Token token = { TOK_EOF, "", codigo->linha };
+
+    Token token = {TOK_EOF, "", codigo->linha};
+
+    char caractere = lerCaractere(codigo);
+    if (isalpha(caractere) || caractere == '_')
+    {
+        return scanWord(codigo);
+    }
+    if (isdigit(caractere))
+    {
+        return scanNumber(codigo);
+    }
+    if ()
+    {
+    }
+
     return token;
 }
 
 /* -------------------- Parser: estrutura inicial -------------------- */
 
-typedef struct {
+typedef struct
+{
     CodigoFonte *codigo;
     Token tokenAtual;
 } Parser;
@@ -194,9 +269,12 @@ void avancarEntrada(Parser *parser)
 
 void casar(Parser *parser, TokenType esperado)
 {
-    if (parser->tokenAtual.tipo == esperado) {
+    if (parser->tokenAtual.tipo == esperado)
+    {
         avancarEntrada(parser);
-    } else {
+    }
+    else
+    {
         erroSintatico(parser->tokenAtual.linha, esperado,
                       parser->tokenAtual.tipo);
     }
@@ -211,20 +289,23 @@ int analisarPrograma(Parser *parser)
 
 /* -------------------- Tabela de simbolos: estruturas iniciais -------------------- */
 
-typedef enum {
+typedef enum
+{
     TIPO_INT,
     TIPO_FLOAT,
     TIPO_ERRO
 } TipoDado;
 
-typedef struct EntradaSimbolo {
+typedef struct EntradaSimbolo
+{
     char lexema[TAM_LEXEMA];
     TipoDado tipo;
     int linha;
     struct EntradaSimbolo *prox;
 } EntradaSimbolo;
 
-typedef struct TabelaSimbolos {
+typedef struct TabelaSimbolos
+{
     EntradaSimbolo *entradas;
     struct TabelaSimbolos *anterior;
 } TabelaSimbolos;
@@ -238,13 +319,15 @@ EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema);
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
+    if (argc != 2)
+    {
         fprintf(stderr, "Uso: %s arquivo.csmall\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     CodigoFonte codigo;
-    if (!abrirCodigoFonte(&codigo, argv[1])) {
+    if (!abrirCodigoFonte(&codigo, argv[1]))
+    {
         return EXIT_FAILURE;
     }
 
@@ -252,7 +335,8 @@ int main(int argc, char **argv)
     printf("-----------------------------------------------\n");
 
     Token token;
-    do {
+    do
+    {
         token = proximoToken(&codigo);
         imprimirToken(token);
     } while (token.tipo != TOK_EOF && token.tipo != TOK_INVALID);
