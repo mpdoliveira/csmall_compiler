@@ -201,6 +201,24 @@ void erroSemantico(int linha, const char *mensagem)
     fprintf(stderr, "Erro semantico na linha %d: %s\n", linha, mensagem);
 }
 
+/* -------------------- Identificadores -------------------- */
+
+char *VALID_SYMBOLS = {
+    '+', '-', '*', '/', '=', '<', '>', '!', '(', ')', '{', '}'};
+
+int isSymbol(char c)
+{
+    int numSymbols = strlen(VALID_SYMBOLS);
+    for (int i = 0; i < numSymbols; i++)
+    {
+        if (c == VALID_SYMBOLS[i])
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* -------------------- Lexer: IMPLEMENTAR -------------------- */
 
 Token scanWord(CodigoFonte *codigo)
@@ -262,16 +280,115 @@ Token scanNumber(CodigoFonte *codigo)
     return token;
 }
 
-Token proximoToken(CodigoFonte *codigo)
+Token scanSymbol(CodigoFonte *codigo)
 {
-    /*
-     TODO: implementar o reconhecimento de tokens.
-     Sugestao: use lerCaractere(), olharCaractere() e devolverCaractere().
-     */
-
-    Token token = {TOK_EOF, "", codigo->linha};
+    Token token = {TOK_INVALID, "", codigo->linha};
 
     char caractere = lerCaractere(codigo);
+    switch (caractere)
+    {
+    case '+':
+        strcpy(token.lexema, "+");
+        token.tipo = TOK_PLUS;
+        return token;
+    case '-':
+        strcpy(token.lexema, "-");
+        token.tipo = TOK_MINUS;
+        return token;
+    case '*':
+        strcpy(token.lexema, "*");
+        token.tipo = TOK_MULT;
+        return token;
+    case '/':
+        strcpy(token.lexema, "/");
+        token.tipo = TOK_DIV;
+        return token;
+    case '=':
+        caractere = olharCaractere(codigo);
+        if (caractere == '=')
+        {
+            strcpy(token.lexema, "==");
+            token.tipo = TOK_EQ;
+        }
+        else
+        {
+            strcpy(token.lexema, "=");
+            token.tipo = TOK_ASSIGN;
+        }
+        return token;
+    case '<':
+        caractere = olharCaractere(codigo);
+        if (caractere == '=')
+        {
+            lerCaractere(codigo);
+            strcpy(token.lexema, "<=");
+            token.tipo = TOK_LE;
+        }
+        else
+        {
+            strcp(token.lexema, "<");
+            token.tipo = TOK_LT;
+        }
+        return token;
+    case '>':
+        caractere = olharCaractere(codigo);
+        if (caractere == '=')
+        {
+            lerCaractere(codigo);
+            strcpy(token.lexema, ">=");
+            token.tipo = TOK_GE;
+        }
+        else
+        {
+            strcp(token.lexema, ">");
+            token.tipo = TOK_GT;
+        }
+        return token;
+    case '!':
+        caractere = olharCaractere(codigo);
+        if (caractere == '=')
+        {
+            lerCaractere(codigo);
+            strcpy(token.lexema, "!=");
+            token.tipo = TOK_PLUS;
+        }
+        return token;
+    case '(':
+        strcpy(token.lexema, "()");
+        token.tipo = TOK_LPAREN;
+    case ')':
+        strcpy(token.lexema, ")");
+        token.tipo = TOK_RPAREN;
+        return token;
+    case '{':
+        strcpy(token.lexema, "{");
+        token.tipo = TOK_LBRACE;
+        return token;
+    case '}':
+        strcpy(token.lexema, "}");
+        token.tipo = TOK_RBRACE;
+        return token;
+    case ';':
+        strcpy(token.lexema, ";");
+        token.tipo = TOK_SEMICOLON;
+        return token;
+    default:
+        return token;
+    }
+}
+
+Token proximoToken(CodigoFonte *codigo)
+{
+    Token token = {TOK_EOF, "", codigo->linha};
+
+    char caractere = olharCaractere(codigo);
+
+    while(isspace(caractere))
+    {
+        lerCaractere(codigo);
+        caractere = olharCaractere(codigo);
+    }
+
     if (isalpha(caractere) || caractere == '_')
     {
         return scanWord(codigo);
@@ -280,8 +397,9 @@ Token proximoToken(CodigoFonte *codigo)
     {
         return scanNumber(codigo);
     }
-    if ()
+    if (isSymbol)
     {
+        return scanSymbol(codigo);
     }
 
     return token;
