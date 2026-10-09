@@ -227,7 +227,40 @@ Token scanWord(CodigoFonte *codigo)
     return token;
 }
 
+Token scanNumber(CodigoFonte *codigo)
+{
+    Token token = {TOK_INT_CONST, "", codigo->linha};
 
+    int isFloat = 0;
+    for (int i = 0; i < TAM_LEXEMA; i++)
+    {
+        char caractere = olharCaractere(codigo);
+        if (isdigit(caractere))
+        {
+            token.lexema[i] = caractere;
+        }
+        if (caractere == '.')
+        {
+            if (isFloat)
+            {
+                token.tipo = TOK_INVALID;
+                return token;
+            }
+
+            token.lexema[i] = caractere;
+            token.tipo = TOK_FLOAT_CONST;
+            isFloat = 1;
+        }
+        else
+        {
+            return token;
+        }
+        caractere = lerCaractere(codigo);
+    }
+
+    token.tipo = TOK_INVALID;
+    return token;
+}
 
 Token proximoToken(CodigoFonte *codigo)
 {
