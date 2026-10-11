@@ -426,14 +426,250 @@ void casar(Parser *parser, TokenType esperado)
     }
     else
     {
-        erroSintatico(parser->tokenAtual.linha, esperado,
-                      parser->tokenAtual.tipo);
+        erroSintatico(parser->tokenAtual.linha, esperado, parser->tokenAtual.tipo);
+    }
+}
+
+void programa(Parser *parser)
+{
+    listaDecl(parser);
+    listaCmd(parser); 
+}
+
+void listaDecl(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_INT || parser->tokenAtual.tipo == TOK_FLOAT)
+    {
+        declaracao(parser);
+        listaDecl(parser);
+    } else {}
+}
+
+void declaracao(Parser *parser)
+{
+    Tipo(parser);
+    casar(parser, TOK_IDENTIFIER);
+    casar(parser, TOK_SEMICOLON);
+}
+
+void tipo(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_INT)
+    {
+        casar(parser, TOK_INT);   
+    }
+    else if (parser->tokenAtual.tipo == TOK_FLOAT)
+    {
+        casar(parser, TOK_FLOAT);   
+    }
+    else
+    {
+        erroSintatico (parser->tokenAtual.linha, TOK_INT, parser->tokenAtual.lexema);
+    }
+}
+
+void listaCmd(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_IDENTIFIER || parser->tokenAtual.tipo == TOK_PRINT || parser->tokenAtual.tipo == TOK_IF || parser->tokenAtual.tipo == TOK_WHILE || parser->tokenAtual.tipo == TOK_LBRACE)
+    {
+        comando(parser);
+        listaCmd(parser);
+    } else {}
+}
+
+void comando(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_IDENTIFIER)
+    {
+        atribuicao(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_PRINT)
+    {
+        Print(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_IF)
+    {
+        If(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_WHILE)
+    {
+        While(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_LBRACE)
+    {
+        bloco(parser);
+    }
+    else{
+        erroSintatico(parser->tokenAtual.linha, TOK_IDENTIFIER , parser->tokenAtual.tipo);
+    }
+
+}
+
+void atribuicao(Parser *parser)
+{
+    casar(parser, TOK_IDENTIFIER);
+    casar(parser, TOK_ASSIGN);
+    expressao(parser);
+    casar(parser, TOK_SEMICOLON);
+}
+
+void Print(Parser *parser)
+{
+    casar(parser, TOK_PRINT);
+    casar(parser, TOK_LPAREN);
+    expressao(parser);
+    casar(parser, TOK_RPAREN);
+    casar(parser, TOK_SEMICOLON);
+} 
+
+void If(Parser *parser)
+{
+    casar(parser, TOK_IF);
+    casar(parser, TOK_LPAREN);
+    condicao(parser);
+    casar(parser, TOK_RPAREN);
+    bloco(parser);
+    opcionalElse(parser);
+}
+
+void opcionalElse(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_ELSE)
+    {
+        casar(parser, TOK_ELSE);
+        bloco(parser);
+    } else {}
+}
+
+void While(Parser *parser)
+{
+        casar(parser, TOK_WHILE);
+        casar(parser, TOK_LPAREN);
+        condicao(parser);
+        casar(parser, TOK_RPAREN);
+        bloco(parser);
+}
+
+void bloco(Parser *parser)
+{
+    casar(parser, TOK_LBRACE);
+    listaDecl(parser);
+    listaCmd(parser);
+    casar(parser, TOK_RBRACE);
+}
+
+void condicao(Parser *parser)
+{
+    expressao(parser);
+    relOp(parser);
+    expressao(parser);
+}
+
+void relOp(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_LT)
+    {
+        casar(parser, TOK_LT);
+    }
+    else if (parser->tokenAtual.tipo == TOK_LE)
+    {
+        casar(parser, TOK_LE);
+    }
+    else if (parser->tokenAtual.tipo == TOK_GT)
+    {
+        casar(parser, TOK_GT);
+    }
+    else if (parser->tokenAtual.tipo == TOK_GE)
+    {
+        casar(parser, TOK_GE);
+    }
+    else if (parser->tokenAtual.tipo == TOK_EQ)
+    {
+        casar(parser, TOK_EQ);
+    }
+    else if (parser->tokenAtual.tipo == TOK_NE)
+    {
+        casar(parser, TOK_NE);
+    }
+    else{
+        erroSintatico(parser->tokenAtual.linha, TOK_EQ, parser->tokenAtual.tipo);
+    }
+}
+
+void expressao(Parser *parser)
+{
+    termo(parser);
+    exprLinha(parser);
+}
+
+void exprLinha(Parser *parser)
+{
+    if (parser->tokenAtual.tipo == TOK_PLUS)
+    {
+        casar(parser, TOK_PLUS);
+        termo(parser);
+        exprLinha(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_MINUS)
+    {
+        casar(parser, TOK_MINUS);
+        termo(parser);
+        exprLinha(parser);
+    } 
+    else {}
+}
+
+void termo(Parser *parser)
+{
+    fator(parser);
+    termoLinha(parser);
+}
+
+void termoLinha(Parser *parser)
+{
+    if(parser->tokenAtual.tipo == TOK_MULT)
+    {
+        casar(parser, TOK_MULT);
+        fator(parser);
+        termoLinha(parser);
+    }
+    else if (parser->tokenAtual.tipo == TOK_DIV)
+    {
+        casar(parser, TOK_DIV);
+        fator(parser);
+        termoLinha(parser);
+    } 
+    else {}
+}
+
+void fator (Parser *parser)
+{
+    if(parser->tokenAtual.tipo == TOK_IDENTIFIER)
+    {
+        casar(parser, TOK_IDENTIFIER);
+    }
+    else if (parser->tokenAtual.tipo == TOK_INT_CONST)
+    {
+        casar(parser, TOK_INT_CONST);
+    }
+    else if (parser->tokenAtual.tipo == TOK_FLOAT_CONST)
+    {
+        casar(parser, TOK_FLOAT_CONST);
+    }
+    else if (parser->tokenAtual.tipo == TOK_LPAREN)
+    {
+        casar(parser, TOK_LPAREN);
+        expressao(parser);
+        casar(parser, TOK_RPAREN);
+    } 
+    else{
+        erroSintatico(parser->tokenAtual.linha, TOK_INT_CONST, parser->tokenAtual.tipo);
     }
 }
 
 int analisarPrograma(Parser *parser)
 {
-    /* TODO: implementar a gramatica da Csmall por descida recursiva. */
+    programa(parser);
     (void)parser;
     return 0;
 }
@@ -462,9 +698,15 @@ typedef struct TabelaSimbolos
 } TabelaSimbolos;
 
 /* TODO: implementar insercao, busca e controle de escopos. */
-int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema,
-                   TipoDado tipo, int linha);
-EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema);
+int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, int linha)
+{
+
+}
+
+EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema)
+{
+
+}
 
 /* -------------------- Programa principal: testar o lexer -------------------- */
 
