@@ -203,7 +203,7 @@ void erroSemantico(int linha, const char *mensagem)
 
 /* -------------------- Identificadores -------------------- */
 
-char *VALID_SYMBOLS = {
+char VALID_SYMBOLS[] = {
     '+', '-', '*', '/', '=', '<', '>', '!', '(', ')', '{', '}'};
 
 int isSymbol(char c)
@@ -219,11 +219,12 @@ int isSymbol(char c)
     return 0;
 }
 
-/* -------------------- Lexer: IMPLEMENTAR -------------------- */
+/* -------------------- Lexer ------------------------------------ */
 
 Token scanWord(CodigoFonte *codigo)
 {
     Token token = {TOK_IDENTIFIER, "", codigo->linha};
+    int i = 0;
 
     for (int i = 0; i < TAM_LEXEMA; i++)
     {
@@ -234,13 +235,32 @@ Token scanWord(CodigoFonte *codigo)
         }
         else
         {
-            devolverCaractere(codigo, caractere);
-            token.lexema[i] = '\0';
-            return token;
+            break;
         }
         caractere = lerCaractere(codigo);
     }
+    token.lexema[i] = '\0';
 
+    char proximo = olharCaractere(codigo);
+    if (isalpha(proximo) || isdigit(proximo) || proximo == '_')
+    {
+        while (isalpha(proximo) || isdigit(proximo) || proximo == '_')
+        {
+            lerCaractere(codigo);
+            proximo = olharCaractere(codigo);
+        }
+        token.tipo = TOK_INVALID;
+        return token;
+    }
+
+    if (strcmp(token.lexema, "int") == 0) token.tipo = TOK_INT;
+    else if (strcmp(token.lexema, "float") == 0) token.tipo = TOK_FLOAT;
+    else if (strcmp(token.lexema, "if") == 0) token.tipo = TOK_IF;
+    else if (strcmp(token.lexema, "else") == 0) token.tipo = TOK_ELSE;
+    else if (strcmp(token.lexema, "while") == 0) token.tipo = TOK_WHILE;
+    else if (strcmp(token.lexema, "print") == 0) token.tipo = TOK_PRINT;
+
+    return token;
     token.tipo = TOK_INVALID;
     return token;
 }
@@ -326,7 +346,7 @@ Token scanSymbol(CodigoFonte *codigo)
         }
         else
         {
-            strcp(token.lexema, "<");
+            strcpy(token.lexema, "<");
             token.tipo = TOK_LT;
         }
         return token;
@@ -340,7 +360,7 @@ Token scanSymbol(CodigoFonte *codigo)
         }
         else
         {
-            strcp(token.lexema, ">");
+            strcpy(token.lexema, ">");
             token.tipo = TOK_GT;
         }
         return token;
@@ -350,7 +370,7 @@ Token scanSymbol(CodigoFonte *codigo)
         {
             lerCaractere(codigo);
             strcpy(token.lexema, "!=");
-            token.tipo = TOK_PLUS;
+            token.tipo = TOK_NE;
         }
         return token;
     case '(':
@@ -397,7 +417,7 @@ Token proximoToken(CodigoFonte *codigo)
     {
         return scanNumber(codigo);
     }
-    if (isSymbol)
+    if (isSymbol(caractere))
     {
         return scanSymbol(codigo);
     }
@@ -447,7 +467,7 @@ void listaDecl(Parser *parser)
 
 void declaracao(Parser *parser)
 {
-    Tipo(parser);
+    tipo(parser);
     casar(parser, TOK_IDENTIFIER);
     casar(parser, TOK_SEMICOLON);
 }
