@@ -114,8 +114,6 @@ void imprimirToken(Token token)
            nomeToken(token.tipo), token.lexema, token.linha);
 }
 
-/* -------------------- Palavras reservadas -------------------- */
-
 /* -------------------- Leitura do codigo-fonte -------------------- */
 
 typedef struct
@@ -204,11 +202,11 @@ void erroSemantico(int linha, const char *mensagem)
 /* -------------------- Identificadores -------------------- */
 
 char VALID_SYMBOLS[] = {
-    '+', '-', '*', '/', '=', '<', '>', '!', '(', ')', '{', '}'};
+    '+', '-', '*', '/', '=', '<', '>', '!', '(', ')', '{', '}', ';'};
 
 int isSymbol(char c)
 {
-    int numSymbols = strlen(VALID_SYMBOLS);
+    int numSymbols = sizeof(VALID_SYMBOLS) / sizeof(VALID_SYMBOLS[0]);
     for (int i = 0; i < numSymbols; i++)
     {
         if (c == VALID_SYMBOLS[i])
@@ -225,43 +223,24 @@ Token scanWord(CodigoFonte *codigo)
 {
     Token token = {TOK_IDENTIFIER, "", codigo->linha};
     int i = 0;
-
-    for (int i = 0; i < TAM_LEXEMA; i++)
+    while (i < TAM_LEXEMA - 1)
     {
-        char caractere = olharCaractere(codigo);
-        if (isalpha(caractere) || isdigit(caractere) || caractere == '_')
-        {
-            token.lexema[i] = caractere;
-        }
-        else
+        int caractere = olharCaractere(codigo);
+        if (caractere == EOF || !(isalpha((unsigned char)caractere) || isdigit((unsigned char)caractere) || (unsigned char)caractere == '_'))
         {
             break;
         }
-        caractere = lerCaractere(codigo);
+        token.lexema[i] = caractere;
+        i++;
+        lerCaractere(codigo);
     }
     token.lexema[i] = '\0';
-
-    char proximo = olharCaractere(codigo);
-    if (isalpha(proximo) || isdigit(proximo) || proximo == '_')
-    {
-        while (isalpha(proximo) || isdigit(proximo) || proximo == '_')
-        {
-            lerCaractere(codigo);
-            proximo = olharCaractere(codigo);
-        }
-        token.tipo = TOK_INVALID;
-        return token;
-    }
-
     if (strcmp(token.lexema, "int") == 0) token.tipo = TOK_INT;
     else if (strcmp(token.lexema, "float") == 0) token.tipo = TOK_FLOAT;
     else if (strcmp(token.lexema, "if") == 0) token.tipo = TOK_IF;
     else if (strcmp(token.lexema, "else") == 0) token.tipo = TOK_ELSE;
     else if (strcmp(token.lexema, "while") == 0) token.tipo = TOK_WHILE;
     else if (strcmp(token.lexema, "print") == 0) token.tipo = TOK_PRINT;
-
-    return token;
-    token.tipo = TOK_INVALID;
     return token;
 }
 
@@ -270,18 +249,19 @@ Token scanNumber(CodigoFonte *codigo)
     Token token = {TOK_INT_CONST, "", codigo->linha};
 
     int isFloat = 0;
-    for (int i = 0; i < TAM_LEXEMA; i++)
+    for (int i = 0; i < TAM_LEXEMA-1; i++)
     {
         char caractere = olharCaractere(codigo);
         if (isdigit(caractere))
         {
             token.lexema[i] = caractere;
         }
-        if (caractere == '.')
+        else if (caractere == '.')
         {
             if (isFloat)
             {
                 token.tipo = TOK_INVALID;
+                token.lexema[i] = '\0';
                 return token;
             }
 
@@ -291,9 +271,10 @@ Token scanNumber(CodigoFonte *codigo)
         }
         else
         {
+            token.lexema[i] = '\0';
             return token;
         }
-        caractere = lerCaractere(codigo);
+        lerCaractere(codigo);
     }
 
     token.tipo = TOK_INVALID;
@@ -327,6 +308,7 @@ Token scanSymbol(CodigoFonte *codigo)
         caractere = olharCaractere(codigo);
         if (caractere == '=')
         {
+            lerCaractere(codigo);
             strcpy(token.lexema, "==");
             token.tipo = TOK_EQ;
         }
@@ -374,8 +356,9 @@ Token scanSymbol(CodigoFonte *codigo)
         }
         return token;
     case '(':
-        strcpy(token.lexema, "()");
+        strcpy(token.lexema, "(");
         token.tipo = TOK_LPAREN;
+        return token;
     case ')':
         strcpy(token.lexema, ")");
         token.tipo = TOK_RPAREN;
@@ -393,6 +376,8 @@ Token scanSymbol(CodigoFonte *codigo)
         token.tipo = TOK_SEMICOLON;
         return token;
     default:
+        token.lexema[0] = caractere;
+        token.lexema[1] = '\0';
         return token;
     }
 }
@@ -401,41 +386,76 @@ Token proximoToken(CodigoFonte *codigo)
 {
     Token token = {TOK_EOF, "", codigo->linha};
 
-    char caractere = olharCaractere(codigo);
+    int caractere = olharCaractere(codigo);
 
-    while(isspace(caractere))
+    while(caractere != EOF && isspace((unsigned char)caractere))
     {
         lerCaractere(codigo);
         caractere = olharCaractere(codigo);
     }
-
-    if (isalpha(caractere) || caractere == '_')
+    if (caractere == EOF)
+    {
+        token.linha = codigo->linha;
+        token.tipo = TOK_EOF;
+        strcpy(token.lexema, "EOF");
+        return token;
+    }
+    if (isalpha((unsigned char)caractere) || caractere == '_')
     {
         return scanWord(codigo);
     }
-    if (isdigit(caractere))
+    if (isdigit((unsigned char)caractere))
     {
         return scanNumber(codigo);
     }
-    if (isSymbol(caractere))
+    if (isSymbol((char)caractere))
     {
         return scanSymbol(codigo);
     }
 
+    caractere = lerCaractere(codigo);
+    token.tipo = TOK_INVALID;
+    token.lexema[0] = (char)caractere;
+    token.lexema[1] = '\0';
     return token;
 }
 
 /* -------------------- Parser: estrutura inicial -------------------- */
 
-typedef struct
+struct Parser
 {
     CodigoFonte *codigo;
     Token tokenAtual;
-} Parser;
+};
+
+typedef struct Parser Parser;
+
+/* -------------------- Declaracoes Antecipadas do Parser -------------------- */
+
+void listaDecl(Parser *parser);
+void declaracao(Parser *parser);
+void tipo(Parser *parser);
+void listaCmd(Parser *parser);
+void comando(Parser *parser);
+void atribuicao(Parser *parser);
+void Print(Parser *parser);
+void If(Parser *parser);
+void opcionalElse(Parser *parser);
+void While(Parser *parser);
+void bloco(Parser *parser);
+void condicao(Parser *parser);
+void relOp(Parser *parser);
+void expressao(Parser *parser);
+void exprLinha(Parser *parser);
+void termo(Parser *parser);
+void termoLinha(Parser *parser);
+void fator(Parser *parser);
+
 
 void avancarEntrada(Parser *parser)
 {
     parser->tokenAtual = proximoToken(parser->codigo);
+    imprimirToken(parser->tokenAtual);
 }
 
 void casar(Parser *parser, TokenType esperado)
@@ -484,7 +504,7 @@ void tipo(Parser *parser)
     }
     else
     {
-        erroSintatico (parser->tokenAtual.linha, TOK_INT, parser->tokenAtual.lexema);
+        erroSintatico (parser->tokenAtual.linha, TOK_INT, parser->tokenAtual.tipo);
     }
 }
 
@@ -689,9 +709,16 @@ void fator (Parser *parser)
 
 int analisarPrograma(Parser *parser)
 {
+    avancarEntrada(parser);
     programa(parser);
-    (void)parser;
-    return 0;
+
+    if (parser->tokenAtual.tipo != TOK_EOF)
+    {
+        erroSintatico(parser->tokenAtual.linha, TOK_EOF, parser->tokenAtual.tipo);
+        return 0;
+    }
+
+    return 1;
 }
 
 /* -------------------- Tabela de simbolos: estruturas iniciais -------------------- */
@@ -718,15 +745,7 @@ typedef struct TabelaSimbolos
 } TabelaSimbolos;
 
 /* TODO: implementar insercao, busca e controle de escopos. */
-int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, int linha)
-{
 
-}
-
-EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema)
-{
-
-}
 
 /* -------------------- Programa principal: testar o lexer -------------------- */
 
@@ -744,16 +763,12 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    printf("%-14s %-20s %s\n", "TOKEN", "LEXEMA", "LINHA");
-    printf("-----------------------------------------------\n");
+    Parser parser;
+    parser.codigo = &codigo;
 
-    Token token;
-    do
-    {
-        token = proximoToken(&codigo);
-        imprimirToken(token);
-    } while (token.tipo != TOK_EOF && token.tipo != TOK_INVALID);
-
+    printf("Iniciando analise sintatica do arquivo: %s\n\n", argv[1]);
+    analisarPrograma(&parser);
     fecharCodigoFonte(&codigo);
+
     return EXIT_SUCCESS;
 }
