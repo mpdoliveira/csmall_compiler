@@ -420,12 +420,63 @@ Token proximoToken(CodigoFonte *codigo)
     return token;
 }
 
+/* -------------------- Tabela de simbolos: estruturas iniciais -------------------- */
+
+typedef enum
+{
+    TIPO_INT,
+    TIPO_FLOAT,
+    TIPO_ERRO
+} TipoDado;
+
+typedef struct EntradaSimbolo
+{
+    char lexema[TAM_LEXEMA];
+    TipoDado tipo;
+    int linha;
+    struct EntradaSimbolo *prox;
+} EntradaSimbolo;
+
+typedef struct TabelaSimbolos
+{
+    EntradaSimbolo *entradas;
+    struct TabelaSimbolos *anterior;
+} TabelaSimbolos;
+
+int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, int linha);
+EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema);
+
+TabelaSimbolos *criarEscopo(TabelaSimbolos *anterior)
+{
+    TabelaSimbolos *nova = (TabelaSimbolos *)malloc(sizeof(TabelaSimbolos));
+    if (!nova) return NULL;
+    nova->entradas = NULL;
+    nova->anterior = anterior;
+    return nova;
+}
+
+TabelaSimbolos *destruirEscopo(TabelaSimbolos *tabela)
+{
+    if (!tabela) return NULL;
+    TabelaSimbolos *anterior = tabela->anterior;
+    EntradaSimbolo *atual = tabela->entradas;
+    while (atual != NULL)
+    {
+        EntradaSimbolo *temp = atual;
+        atual = atual->prox;
+        free(temp);
+    }
+    free(tabela);
+    return anterior;
+}
+
 /* -------------------- Parser: estrutura inicial -------------------- */
 
 struct Parser
 {
     CodigoFonte *codigo;
     Token tokenAtual;
+    TabelaSimbolos *tabela;
 };
 
 typedef struct Parser Parser;
@@ -434,7 +485,7 @@ typedef struct Parser Parser;
 
 void listaDecl(Parser *parser);
 void declaracao(Parser *parser);
-void tipo(Parser *parser);
+TipoDado tipo(Parser *parser);
 void listaCmd(Parser *parser);
 void comando(Parser *parser);
 void atribuicao(Parser *parser);
@@ -445,13 +496,12 @@ void While(Parser *parser);
 void bloco(Parser *parser);
 void condicao(Parser *parser);
 void relOp(Parser *parser);
-void expressao(Parser *parser);
-void exprLinha(Parser *parser);
-void termo(Parser *parser);
-void termoLinha(Parser *parser);
-void fator(Parser *parser);
+TipoDado expressao(Parser *parser);
+TipoDado exprLinha(Parser *parser, TipoDado esq);
+TipoDado termo(Parser *parser);
+TipoDado termoLinha(Parser *parser, TipoDado esq);
+TipoDado fator(Parser *parser);
 
-/* TODO: implementar a gramatica da Csmall por descida recursiva. */
 
 void avancarEntrada(Parser *parser)
 {
@@ -488,24 +538,35 @@ void listaDecl(Parser *parser)
 
 void declaracao(Parser *parser)
 {
-    tipo(parser);
-    casar(parser, TOK_IDENTIFIER);
+    TipoDado t = tipo(parser);
+    if (parser->tokenAtual.tipo == TOK_IDENTIFIER)
+    {
+        inserirSimbolo(parser->tabela, parser->tokenAtual.lexema, t, parser->tokenAtual.linha);
+        casar(parser, TOK_IDENTIFIER);
+    }
+    else
+    {
+        erroSintatico(parser->tokenAtual.linha, TOK_IDENTIFIER, parser->tokenAtual.tipo);
+    }
     casar(parser, TOK_SEMICOLON);
 }
 
-void tipo(Parser *parser)
+TipoDado tipo(Parser *parser)
 {
     if (parser->tokenAtual.tipo == TOK_INT)
     {
-        casar(parser, TOK_INT);   
+        casar(parser, TOK_INT);
+        return TIPO_INT;  
     }
     else if (parser->tokenAtual.tipo == TOK_FLOAT)
     {
-        casar(parser, TOK_FLOAT);   
+        casar(parser, TOK_FLOAT); 
+        return TIPO_FLOAT;  
     }
     else
     {
         erroSintatico (parser->tokenAtual.linha, TOK_INT, parser->tokenAtual.tipo);
+        return TIPO_ERRO;
     }
 }
 
@@ -548,17 +609,35 @@ void comando(Parser *parser)
 
 void atribuicao(Parser *parser)
 {
+    char varNome[TAM_LEXEMA];
+    int linha = parser->tokenAtual.linha;
+    strcpy(varNome, parser->tokenAtual.lexema);
     casar(parser, TOK_IDENTIFIER);
+    
+    EntradaSimbolo *simbolo = buscarSimbolo(parser->tabela, varNome);
+    if (!simbolo)
+    {
+        erroSemantico(linha, "Variavel nao declarada.");
+    }
     casar(parser, TOK_ASSIGN);
-    expressao(parser);
+    TipoDado tExpr = expressao(parser);
+    if (simbolo && tExpr != TIPO_ERRO && simbolo->tipo != tExpr)
+    {
+        erroSemantico(linha, "Atribuicao com tipos incompativeis.");
+    }
     casar(parser, TOK_SEMICOLON);
 }
 
 void Print(Parser *parser)
 {
+    int linha = parser->tokenAtual.linha;
     casar(parser, TOK_PRINT);
     casar(parser, TOK_LPAREN);
-    expressao(parser);
+    TipoDado t = expressao(parser);
+    if (t == TIPO_ERRO)
+    {
+        erroSemantico(linha, "Expressao invalida no print.");
+    }
     casar(parser, TOK_RPAREN);
     casar(parser, TOK_SEMICOLON);
 } 
@@ -594,16 +673,23 @@ void While(Parser *parser)
 void bloco(Parser *parser)
 {
     casar(parser, TOK_LBRACE);
+    parser->tabela = criarEscopo(parser->tabela);
     listaDecl(parser);
     listaCmd(parser);
+    parser->tabela = destruirEscopo(parser->tabela);
     casar(parser, TOK_RBRACE);
 }
 
 void condicao(Parser *parser)
 {
-    expressao(parser);
+    int linha = parser->tokenAtual.linha;
+    TipoDado t1 = expressao(parser);
     relOp(parser);
-    expressao(parser);
+    TipoDado t2 = expressao(parser);
+    if (t1 == TIPO_ERRO || t2 == TIPO_ERRO)
+    {
+        erroSemantico(linha, "Condicao invalida.");
+    }
 }
 
 void relOp(Parser *parser)
@@ -637,79 +723,148 @@ void relOp(Parser *parser)
     }
 }
 
-void expressao(Parser *parser)
+TipoDado expressao(Parser *parser)
 {
-    termo(parser);
-    exprLinha(parser);
+    TipoDado tTermo = termo(parser);
+    return exprLinha(parser, tTermo);
 }
 
-void exprLinha(Parser *parser)
+TipoDado exprLinha(Parser *parser, TipoDado esq)
 {
     if (parser->tokenAtual.tipo == TOK_PLUS)
     {
+        int linha = parser->tokenAtual.linha;
         casar(parser, TOK_PLUS);
-        termo(parser);
-        exprLinha(parser);
+        TipoDado dir = termo(parser);
+        
+        TipoDado res;
+        if (esq == TIPO_FLOAT || dir == TIPO_FLOAT)
+        {
+            res = TIPO_FLOAT;
+        }
+        else
+        {
+            res = TIPO_INT;
+        }
+        if (esq == TIPO_ERRO || dir == TIPO_ERRO) res = TIPO_ERRO;
+
+        return exprLinha(parser, res);
     }
     else if (parser->tokenAtual.tipo == TOK_MINUS)
     {
+        int linha = parser->tokenAtual.linha;
         casar(parser, TOK_MINUS);
-        termo(parser);
-        exprLinha(parser);
-    } 
-    else {}
+        TipoDado dir = termo(parser);
+
+        TipoDado res;
+        if (esq == TIPO_FLOAT || dir == TIPO_FLOAT)
+        {
+            res = TIPO_FLOAT;
+        }
+        else
+        {
+            res = TIPO_INT;
+        }
+        if (esq == TIPO_ERRO || dir == TIPO_ERRO) res = TIPO_ERRO;
+    
+        return exprLinha (parser, res);
+    }
+    else
+    {
+        return esq;
+    }
 }
 
-void termo(Parser *parser)
+TipoDado termo(Parser *parser)
 {
-    fator(parser);
-    termoLinha(parser);
+    TipoDado tFator = fator(parser);
+    return termoLinha(parser, tFator);
 }
 
-void termoLinha(Parser *parser)
+TipoDado termoLinha(Parser *parser, TipoDado esq)
 {
     if(parser->tokenAtual.tipo == TOK_MULT)
     {
         casar(parser, TOK_MULT);
-        fator(parser);
-        termoLinha(parser);
+        TipoDado dir = fator(parser);
+
+        TipoDado res;
+        if (esq == TIPO_FLOAT || dir == TIPO_FLOAT)
+        {
+            res = TIPO_FLOAT;
+        }
+        else
+        {
+            res = TIPO_INT;
+        }
+        if (esq == TIPO_ERRO || dir == TIPO_ERRO) res = TIPO_ERRO;
+
+        return termoLinha(parser, res);
     }
     else if (parser->tokenAtual.tipo == TOK_DIV)
     {
         casar(parser, TOK_DIV);
-        fator(parser);
-        termoLinha(parser);
+        TipoDado dir = fator(parser);
+        TipoDado res;
+        if (esq == TIPO_FLOAT || dir == TIPO_FLOAT)
+        {
+            res = TIPO_FLOAT;
+        }
+        else
+        {
+            res = TIPO_INT;
+        }
+        if (esq == TIPO_ERRO || dir == TIPO_ERRO) res = TIPO_ERRO;
+
+        return termoLinha(parser, res);
     } 
-    else {}
+    else 
+    {
+        return esq;
+    }
 }
 
-void fator (Parser *parser)
+TipoDado fator (Parser *parser)
 {
     if(parser->tokenAtual.tipo == TOK_IDENTIFIER)
     {
+        EntradaSimbolo *simbolo = buscarSimbolo(parser->tabela, parser->tokenAtual.lexema);
+        if (!simbolo)
+        {
+            erroSemantico(parser->tokenAtual.linha, "Variavel nao declarada.");
+            casar(parser, TOK_IDENTIFIER);
+            return TIPO_ERRO;
+        }
         casar(parser, TOK_IDENTIFIER);
+        return simbolo->tipo;
     }
     else if (parser->tokenAtual.tipo == TOK_INT_CONST)
     {
         casar(parser, TOK_INT_CONST);
+        return TIPO_INT;
     }
     else if (parser->tokenAtual.tipo == TOK_FLOAT_CONST)
     {
         casar(parser, TOK_FLOAT_CONST);
+        return TIPO_FLOAT;
     }
     else if (parser->tokenAtual.tipo == TOK_LPAREN)
     {
         casar(parser, TOK_LPAREN);
-        expressao(parser);
+        TipoDado t = expressao(parser);
         casar(parser, TOK_RPAREN);
+        return t;
     } 
-    else{
+    else
+    {
         erroSintatico(parser->tokenAtual.linha, TOK_INT_CONST, parser->tokenAtual.tipo);
+        return TIPO_ERRO;
     }
 }
 
 int analisarPrograma(Parser *parser)
 {
+    parser->tabela = criarEscopo(NULL);
     avancarEntrada(parser);
     programa(parser);
 
@@ -718,34 +873,10 @@ int analisarPrograma(Parser *parser)
         erroSintatico(parser->tokenAtual.linha, TOK_EOF, parser->tokenAtual.tipo);
         return 0;
     }
-
+    parser->tabela = destruirEscopo(parser->tabela);
     return 1;
 }
 
-/* -------------------- Tabela de simbolos: estruturas iniciais -------------------- */
-
-typedef enum
-{
-    TIPO_INT,
-    TIPO_FLOAT,
-    TIPO_ERRO
-} TipoDado;
-
-typedef struct EntradaSimbolo
-{
-    char lexema[TAM_LEXEMA];
-    TipoDado tipo;
-    int linha;
-    struct EntradaSimbolo *prox;
-} EntradaSimbolo;
-
-typedef struct TabelaSimbolos
-{
-    EntradaSimbolo *entradas;
-    struct TabelaSimbolos *anterior;
-} TabelaSimbolos;
-
-/* TODO: implementar insercao, busca e controle de escopos. */
 int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, int linha)
 {
     if (tabela == NULL){
@@ -753,11 +884,12 @@ int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, in
     }
 
     EntradaSimbolo *atual = tabela->entradas;
-    while (tabela->entradas != NULL)
+    while (atual != NULL)
     {
         if(strcmp(atual->lexema, lexema) == 0)
         {
             erroSemantico(linha, "Variável já declarada nesse escopo.");
+            return 0;
         }
         atual = atual->prox;
     }
@@ -768,7 +900,8 @@ int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, in
         return 0;
     }
 
-    strcpy(novo->lexema, lexema);
+    strncpy(novo->lexema, lexema, TAM_LEXEMA-1);
+    novo->lexema[TAM_LEXEMA - 1] = '\0';
     novo->tipo = tipo;
     novo->linha = linha;
     novo->prox = tabela->entradas;
@@ -811,6 +944,9 @@ int main(int argc, char **argv)
     parser.codigo = &codigo;
 
     printf("Iniciando analise sintatica do arquivo: %s\n\n", argv[1]);
+    printf("%-14s %-20s %s\n", "TOKEN", "LEXEMA", "LINHA");
+    printf("-----------------------------------------------\n");
+    
     analisarPrograma(&parser);
     fecharCodigoFonte(&codigo);
 
