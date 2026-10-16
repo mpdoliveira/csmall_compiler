@@ -451,6 +451,7 @@ void termo(Parser *parser);
 void termoLinha(Parser *parser);
 void fator(Parser *parser);
 
+/* TODO: implementar a gramatica da Csmall por descida recursiva. */
 
 void avancarEntrada(Parser *parser)
 {
@@ -745,7 +746,50 @@ typedef struct TabelaSimbolos
 } TabelaSimbolos;
 
 /* TODO: implementar insercao, busca e controle de escopos. */
+int inserirSimbolo(TabelaSimbolos *tabela, const char *lexema, TipoDado tipo, int linha)
+{
+    if (tabela == NULL){
+        return 0;
+    }
 
+    EntradaSimbolo *atual = tabela->entradas;
+    while (tabela->entradas != NULL)
+    {
+        if(strcmp(atual->lexema, lexema) == 0)
+        {
+            erroSemantico(linha, "Variável já declarada nesse escopo.");
+        }
+        atual = atual->prox;
+    }
+    EntradaSimbolo *novo = (EntradaSimbolo *) malloc(sizeof(EntradaSimbolo));
+    if (novo == NULL)
+    {
+        fprintf(stderr, "Erro de alocacao de memoria para o simbolo.\n");
+        return 0;
+    }
+
+    strcpy(novo->lexema, lexema);
+    novo->tipo = tipo;
+    novo->linha = linha;
+    novo->prox = tabela->entradas;
+    tabela->entradas = novo;
+    return 1;
+}
+
+EntradaSimbolo *buscarSimbolo(TabelaSimbolos *tabela, const char *lexema)
+{
+    for (; tabela != NULL; tabela = tabela->anterior)
+    {
+        EntradaSimbolo *atual = tabela->entradas;
+        while (atual != NULL)
+        {
+            if (strcmp(atual->lexema, lexema) == 0)
+                return atual;
+            atual = atual->prox;
+        }
+    }
+    return NULL;
+}
 
 /* -------------------- Programa principal: testar o lexer -------------------- */
 

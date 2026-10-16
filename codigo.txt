@@ -1,1 +1,3 @@
+float y; float z;
 oi = x + 55;
+y = 23.4;
