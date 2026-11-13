@@ -486,19 +486,20 @@ typedef struct Labeller
     int nProxNome;
 } Labeller;
 
-Labeller criaLebeller()
+Labeller *criaLebeller()
 {
     Labeller l;
     l.nProxNome = 0;
     l.nProxRotulo = 0;
-    return l;
+    return &l;
 }
 
 const char *novoNome(Labeller *l)
 {
     int tamanho = snprintf(NULL, 0, "L%d", l->nProxNome) + 1;
     char *nome = malloc(tamanho);
-    if (nome != NULL) {
+    if (nome != NULL)
+    {
         snprintf(nome, tamanho, "L%d", l->nProxNome);
         l->nProxNome++;
     }
@@ -509,7 +510,8 @@ const char *novoRotulo(Labeller *l)
 {
     int tamanho = snprintf(NULL, 0, "L%d", l->nProxRotulo) + 1;
     char *rotulo = malloc(tamanho);
-    if (rotulo != NULL) {
+    if (rotulo != NULL)
+    {
         snprintf(rotulo, tamanho, "L%d", l->nProxRotulo);
         l->nProxRotulo++;
     }
@@ -523,6 +525,7 @@ struct Parser
     CodigoFonte *codigo;
     Token tokenAtual;
     TabelaSimbolos *tabela;
+    Labeller *labeller;
 };
 
 typedef struct Parser Parser;
@@ -547,6 +550,7 @@ TipoDado exprLinha(Parser *parser, TipoDado esq);
 TipoDado termo(Parser *parser);
 TipoDado termoLinha(Parser *parser, TipoDado esq);
 TipoDado fator(Parser *parser);
+void emitir(const char *instrução);
 
 void avancarEntrada(Parser *parser)
 {
@@ -921,6 +925,14 @@ TipoDado fator(Parser *parser)
     }
 }
 
+void emitir(const char *instrucao)
+{
+    FILE *fptr;
+    fptr = fopen("codigo_tres_enderecos.txt", "a");
+    fprintf(fptr, instrucao);
+    fclose(fptr);
+}
+
 int analisarPrograma(Parser *parser)
 {
     parser->tabela = criarEscopo(NULL);
@@ -1002,6 +1014,7 @@ int main(int argc, char **argv)
 
     Parser parser;
     parser.codigo = &codigo;
+    parser.labeller = criaLebeller();
 
     printf("Iniciando analise sintatica do arquivo: %s\n\n", argv[1]);
     printf("%-14s %-20s %s\n", "TOKEN", "LEXEMA", "LINHA");
