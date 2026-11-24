@@ -536,10 +536,10 @@ void comando(Parser *parser);
 void atribuicao(Parser *parser);
 void Print(Parser *parser);
 void If(Parser *parser);
-void opcionalElse(Parser *parser);
+void opcionalElse(Parser *parser, const char *rotuloFalso, const char *rotuloSaida);
 void While(Parser *parser);
 void bloco(Parser *parser);
-void condicao(Parser *parser);
+void condicao(Parser *parser, const char *rotuloVerdadeiro, const char *rotuloFalso);
 void relOp(Parser *parser, char *op);
 ExprInfo expressao(Parser *parser);
 ExprInfo exprLinha(Parser *parser, ExprInfo esq);
@@ -700,30 +700,83 @@ void Print(Parser *parser)
 
 void If(Parser *parser)
 {
+    char rotuloVerdadeiro[TAM_LEXEMA];
+    char rotuloFalso[TAM_LEXEMA];
+    char rotuloSaida[TAM_LEXEMA];
+    char instrucao[TAM_LEXEMA * 2];
+
+    novoRotulo(parser->labeller, rotuloVerdadeiro);
+    novoRotulo(parser->labeller, rotuloFalso);
+    novoRotulo(parser->labeller, rotuloSaida);
+
     casar(parser, TOK_IF);
     casar(parser, TOK_LPAREN);
-    condicao(parser);
+    condicao(parser, rotuloVerdadeiro, rotuloFalso);
     casar(parser, TOK_RPAREN);
+
+    snprintf(instrucao, sizeof(instrucao), "%s:", rotuloVerdadeiro);
+    emitir(parser, instrucao);
+
     bloco(parser);
-    opcionalElse(parser);
+
+    opcionalElse(parser, rotuloFalso, rotuloSaida);
 }
 
-void opcionalElse(Parser *parser)
+void opcionalElse(Parser *parser, const char *rotuloFalso, const char *rotuloSaida)
 {
+    char instrucao[TAM_LEXEMA * 2];
+
     if (parser->tokenAtual.tipo == TOK_ELSE)
     {
+        snprintf(instrucao, sizeof(instrucao), "goto %s", rotuloSaida);
+        emitir(parser, instrucao);
+
+        snprintf(instrucao, sizeof(instrucao), "%s:", rotuloFalso);
+        emitir(parser, instrucao);
+
         casar(parser, TOK_ELSE);
         bloco(parser);
+
+        snprintf(instrucao, sizeof(instrucao), "%s:", rotuloSaida);
+        emitir(parser, instrucao);
+    }
+    else
+    {
+        /* Sem else: o salto de falso cai direto apos o bloco do if */
+        snprintf(instrucao, sizeof(instrucao), "%s:", rotuloFalso);
+        emitir(parser, instrucao);
     }
 }
 
 void While(Parser *parser)
 {
+    char rotuloTeste[TAM_LEXEMA];
+    char rotuloCorpo[TAM_LEXEMA];
+    char rotuloSaida[TAM_LEXEMA];
+    char instrucao[TAM_LEXEMA * 2];
+
+    novoRotulo(parser->labeller, rotuloTeste);
+    novoRotulo(parser->labeller, rotuloCorpo);
+    novoRotulo(parser->labeller, rotuloSaida);
+
+    snprintf(instrucao, sizeof(instrucao), "%s:", rotuloTeste);
+    emitir(parser, instrucao);
+
     casar(parser, TOK_WHILE);
     casar(parser, TOK_LPAREN);
-    condicao(parser);
+    condicao(parser, rotuloCorpo, rotuloSaida);
     casar(parser, TOK_RPAREN);
+
+    snprintf(instrucao, sizeof(instrucao), "%s:", rotuloCorpo);
+    emitir(parser, instrucao);
+
     bloco(parser);
+
+    snprintf(instrucao, sizeof(instrucao), "goto %s", rotuloTeste);
+    emitir(parser, instrucao);
+
+    snprintf(instrucao, sizeof(instrucao), "%s:", rotuloSaida);
+    emitir(parser, instrucao);
 }
 
 void bloco(Parser *parser)
@@ -736,17 +789,27 @@ void bloco(Parser *parser)
     casar(parser, TOK_RBRACE);
 }
 
-void condicao(Parser *parser)
+void condicao(Parser *parser, const char *rotuloVerdadeiro, const char *rotuloFalso)
 {
     int linha = parser->tokenAtual.linha;
     char op[4] = "";
+    char instrucao[TAM_LEXEMA * 4];
+
     ExprInfo e1 = expressao(parser);
     relOp(parser, op);
     ExprInfo e2 = expressao(parser);
+
     if (e1.tipo == TIPO_ERRO || e2.tipo == TIPO_ERRO)
     {
         erroSemantico(linha, "Condicao invalida.");
+        return;
     }
+
+    snprintf(instrucao, sizeof(instrucao), "if %s %s %s goto %s", e1.end, op, e2.end, rotuloVerdadeiro);
+    emitir(parser, instrucao);
+
+    snprintf(instrucao, sizeof(instrucao), "goto %s", rotuloFalso);
+    emitir(parser, instrucao);
 }
 
 void relOp(Parser *parser, char *op)
